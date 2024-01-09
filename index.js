@@ -17,8 +17,31 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-// console.log(process.env.DB_USER);
-// console.log(process.env.DB_PASS);
+// middleware
+//  const logger=async(req,res,next)=>{
+//   console.log("called : ",req.host, req.originalUrl)
+//   next();
+//  }
+
+const verifyToken = async (req, res, next) => {
+  const token = req.cookies?.token;
+  console.log("value of token in middleware : ", token);
+  if (!token) {
+    return res.status(401).sens({ message: "not authorized" });
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    // error
+    if (err) {
+      console.log(err);
+      return res.status(401).sens({ message: "not authorized" });
+    }
+
+    // if token valid decoded
+    console.log("value in the token", decoded);
+    req.user = decoded;
+    next();
+  });
+};
 
 //******************************************************************* */
 
@@ -40,7 +63,6 @@ async function run() {
 
     const serviceCollection = client.db("carDoctor").collection("services");
     const bookingCollection = client.db("carDoctor").collection("bookings");
- 
 
     try {
       app.post("/jwt", async (req, res) => {
@@ -80,8 +102,13 @@ async function run() {
 
     // bookings
 
-    app.get("/bookings", async (req, res) => {
+    app.get("/bookings", verifyToken, async (req, res) => {
       // console.log("query here -->>>", req.query.email);
+      // console.log("tok tok token",req.cookies.token)
+      console.log("user in the valid token", req.user);
+      // if (req.query.email !== req.user.email) {
+      //   return res.status(403).sens({ message: "forbidden" });
+      // }
       let query = {};
       if (req.query?.email) {
         query = { email: req.query.email };
